@@ -21,7 +21,7 @@ load_dotenv()
 openai.api_key = os.getenv("OPENAPIKEY")
 
 # Serve static files
-app.mount("/static", StaticFiles(directory="static"), name="static")
+# app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Define model paths and URLs
 MODEL_DIR = "Model"
@@ -36,16 +36,16 @@ VGG_MODEL_URL = os.getenv("VGG_MODEL_URL")
 
 
 
-@app.get("/", response_class=HTMLResponse)
-async def get_chat_page():
-    """
-    Serve the chat homepage.
-    """
-    try:
+# @app.get("/", response_class=HTMLResponse)
+# async def get_chat_page():
+#     """
+#     Serve the chat homepage.
+#     """
+#     try:
        
-        return FileResponse("static/calorie.html")
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="Homepage not found.")
+#         return FileResponse("static/calorie.html")
+#     except FileNotFoundError:
+#         raise HTTPException(status_code=404, detail="Homepage not found.")
     
 
 img_width, img_height = 299, 299
