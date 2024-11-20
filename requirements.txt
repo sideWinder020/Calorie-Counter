@@ -8,3 +8,4 @@ numpy
 scikit_learn
 tensorflow
 uvicorn
+python-multipart
