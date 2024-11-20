@@ -8,5 +8,3 @@ python-dotenv==1.0.1
 Requests==2.32.3
 scikit_learn==1.5.2
 tensorflow==2.18.0
-tensorflow_intel==2.18.0
-python==3.10
