@@ -12,9 +12,12 @@ import io
 import json
 import requests
 from icecream import ic
+import PIL
+
 
 # Initialize FastAPI
 app = FastAPI()
+
 
 # Load environment variables
 load_dotenv()
