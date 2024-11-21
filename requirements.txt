@@ -9,4 +9,4 @@ scikit_learn
 tensorflow
 uvicorn
 python-multipart
-PIL
+Pillow
