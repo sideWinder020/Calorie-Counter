@@ -13,6 +13,13 @@ import json
 import requests
 from icecream import ic
 import PIL
+import re
+from typing import Any
+import traceback
+from fastapi.responses import JSONResponse
+
+
+
 
 
 # Initialize FastAPI
@@ -35,6 +42,28 @@ VGG_MODEL_PATH = os.path.join(MODEL_DIR, "complete_vgg16_model.h5")
 
 INCEPTION_MODEL_URL = os.getenv("INCEPTION_MODEL_URL")
 VGG_MODEL_URL = os.getenv("VGG_MODEL_URL")
+
+
+import re
+import json
+
+def to_camel_case(snake_str):
+    """
+    Converts a string to camelCase.
+    """
+    words = re.split(r'[ _]', snake_str)
+    return words[0].lower() + ''.join(word.capitalize() for word in words[1:])
+
+def convert_keys_to_camel_case(data):
+    """
+    Recursively converts all dictionary keys to camelCase.
+    """
+    if isinstance(data, dict):
+        return {to_camel_case(key): convert_keys_to_camel_case(value) for key, value in data.items()}
+    elif isinstance(data, list):
+        return [convert_keys_to_camel_case(item) for item in data]
+    else:
+        return data
 
 
 
@@ -141,6 +170,9 @@ def get_nutritional_info(food_item):
             print("Error parsing JSON:", json_error)
             return {"error": "Failed to parse nutritional information as JSON."}
 
+
+        nutritional_info = convert_keys_to_camel_case(nutritional_info)
+
         if nutritional_info:
             key = list(nutritional_info.keys())[-1]
             if key in nutritional_info:
@@ -159,14 +191,6 @@ def get_nutritional_info(food_item):
         print("Unexpected error:", general_error)
         return {"error": "An unexpected error occurred."}
 
-from fastapi import FastAPI, File, UploadFile, HTTPException
-from typing import Any
-import traceback
-
-from fastapi import FastAPI, File, UploadFile, HTTPException
-from fastapi.responses import JSONResponse
-from typing import Any
-import traceback
 
 @app.post("/predict-food-nutrition")
 async def predict_food_nutrition(file: UploadFile = File(...)) -> Any:
@@ -208,21 +232,26 @@ async def predict_food_nutrition(file: UploadFile = File(...)) -> Any:
             return JSONResponse(
                 status_code=200,
                 content={
-                    "predicted_food_item": "Probably not a food item, try again.",
+                    "predictedFoodItem": "Probably not a food item, try again.",
                     "confidence": final_confidence,
-                    "nutritional_info": {"none": None},
+                    "nutritionalInfo": {"none": None},
                 },
             )
 
         # Get nutritional information using OpenAI API
         nutritional_info = get_nutritional_info(final_predicted_label)
+        # final_predicted_label = to_camel_case(final_predicted_label)
+
+
+        final_predicted_label = " ".join(final_predicted_label.split("_")).title()
 
         # Prepare and return the response
         response_output = {
-            "predicted_food_item": final_predicted_label,
+            "predictedFoodItem": final_predicted_label,
             "confidence": final_confidence,
-            "nutritional_info": nutritional_info,
+            "nutritionalInfo": nutritional_info,
         }
+        ic(response_output)
         return JSONResponse(status_code=200, content=response_output)
 
     except HTTPException as http_err:
@@ -259,10 +288,11 @@ async def get_nutritional_info_endpoint(request: FoodItemRequest):
     nutritional_info = get_nutritional_info(food_item)
     ordered_nutritional_info = {"Food Name": food_item}
     ordered_nutritional_info.update(nutritional_info)
-    
+    ordered_nutritional_info = convert_keys_to_camel_case(ordered_nutritional_info)
+    ordered_nutritional_info["foodName"] = " ".join(ordered_nutritional_info["foodName"].split(" ")).title()
     ic(ordered_nutritional_info)
 
     if "error" in ordered_nutritional_info:
         raise HTTPException(status_code=500, detail=ordered_nutritional_info["error"])
 
-    return {"nutritional_info": ordered_nutritional_info}
+    return {"nutritionalInfo": ordered_nutritional_info}
