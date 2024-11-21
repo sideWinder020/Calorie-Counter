@@ -36,16 +36,16 @@ VGG_MODEL_URL = os.getenv("VGG_MODEL_URL")
 
 
 
-# @app.get("/", response_class=HTMLResponse)
-# async def get_chat_page():
-#     """
-#     Serve the chat homepage.
-#     """
-#     try:
+@app.get("/", response_class=HTMLResponse)
+async def get_chat_page():
+    """
+    Serve the chat homepage.
+    """
+    try:
        
-#         return FileResponse("static/calorie.html")
-#     except FileNotFoundError:
-#         raise HTTPException(status_code=404, detail="Homepage not found.")
+        return FileResponse("static/calorie.html")
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Homepage not found.")
     
 
 img_width, img_height = 299, 299
@@ -156,54 +156,83 @@ def get_nutritional_info(food_item):
         print("Unexpected error:", general_error)
         return {"error": "An unexpected error occurred."}
 
+from fastapi import FastAPI, File, UploadFile, HTTPException
+from typing import Any
+import traceback
+
+from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi.responses import JSONResponse
+from typing import Any
+import traceback
+
 @app.post("/predict-food-nutrition")
-async def predict_food_nutrition(file: UploadFile = File(...)):
+async def predict_food_nutrition(file: UploadFile = File(...)) -> Any:
     """
     Endpoint to predict food item and get nutritional information.
     """
-    img_data = await file.read()
+    try:
+        # Read the uploaded image
+        img_data = await file.read()
+        if not img_data:
+            raise HTTPException(status_code=400, detail="Uploaded file is empty or invalid.")
 
-    inception_predicted_label, inception_confidence = predict_image(img_data, inception_model, target_size=(img_width, img_height), class_indices=class_indices)
-    inception_confidence = float(inception_confidence)
+        # Perform predictions using the models
+        inception_predicted_label, inception_confidence = predict_image(
+            img_data, inception_model, target_size=(img_width, img_height), class_indices=class_indices
+        )
+        vgg_predicted_label, vgg_confidence = predict_image(
+            img_data, vgg_model, target_size=(224, 224), class_indices=class_indices_english
+        )
 
+        # Convert numpy.float32 to native Python float for serialization
+        inception_confidence = float(inception_confidence)
+        vgg_confidence = float(vgg_confidence)
 
-    vgg_predicted_label, vgg_confidence = predict_image(img_data, vgg_model, target_size=(224, 224), class_indices=class_indices_english)
-    vgg_confidence = float(vgg_confidence)
+        # Log predictions for debugging
+        ic(inception_predicted_label, inception_confidence)
+        ic(vgg_predicted_label, vgg_confidence)
 
-    ic(inception_predicted_label, inception_confidence)
-    ic(vgg_predicted_label, vgg_confidence)
+        # Choose the final prediction based on confidence
+        if inception_confidence > vgg_confidence:
+            final_predicted_label = inception_predicted_label
+            final_confidence = inception_confidence
+        else:
+            final_predicted_label = vgg_predicted_label
+            final_confidence = vgg_confidence
 
+        # Handle low-confidence predictions
+        if final_confidence * 100 <= 25:
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "predicted_food_item": "Probably not a food item, try again.",
+                    "confidence": final_confidence,
+                    "nutritional_info": {"none": None},
+                },
+            )
 
-    final_predicted_label = vgg_predicted_label
-    final_confidence = vgg_confidence
+        # Get nutritional information using OpenAI API
+        nutritional_info = get_nutritional_info(final_predicted_label)
 
-    if inception_confidence > vgg_confidence:
-        final_predicted_label = inception_predicted_label
-        final_confidence = inception_confidence
-    
-
-
-    if final_confidence*100 <= 25:
-        final_predicted_label = "Probably not a food item, try again."
+        # Prepare and return the response
         response_output = {
             "predicted_food_item": final_predicted_label,
             "confidence": final_confidence,
-            "nutritional_info": {"none": None}
+            "nutritional_info": nutritional_info,
         }
-        return response_output
-    
-    # if confidence < 0.5:
-    #     raise HTTPException(status_code=400, detail="Prediction confidence too low to determine food item.")
+        return JSONResponse(status_code=200, content=response_output)
 
-    nutritional_info = get_nutritional_info(final_predicted_label)
+    except HTTPException as http_err:
+        # Handle HTTP exceptions explicitly
+        raise http_err
 
-    response_output = {
-        "predicted_food_item": final_predicted_label,
-        "confidence": final_confidence,
-        "nutritional_info": nutritional_info
-    }
-
-    return response_output
+    except Exception as err:
+        # Log unexpected errors and return a generic error response
+        traceback.print_exc()
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "An unexpected error occurred while processing the request."},
+        )
 
 
 
