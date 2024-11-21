@@ -269,7 +269,7 @@ async def predict_food_nutrition(file: UploadFile = File(...)) -> Any:
 
 
 class FoodItemRequest(BaseModel):
-    food_item: str
+    foodItem: str
 
 
 @app.post("/get-nutritional-info-user-prompt")
@@ -279,7 +279,7 @@ async def get_nutritional_info_endpoint(request: FoodItemRequest):
     """
 
 
-    food_item = request.food_item
+    food_item = request.foodItem
 
     # print(f"Received food item: {food_item}")
     if not food_item:
